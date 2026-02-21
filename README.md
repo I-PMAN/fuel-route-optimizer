@@ -1,37 +1,59 @@
 # Fuel Route Optimizer API
 
 ## Overview
-This is a Django REST API that calculates optimal fuel stops between two US cities.
+
+This project is a Django REST API that calculates optimal fuel stops between two US cities.
+
+Given a start and end city, the API:
+
+1. Fetches route distance and geometry
+2. Simulates vehicle fuel consumption
+3. Selects optimal fuel stops along the route
+4. Calculates total fuel cost
+
+The system uses a greedy optimization strategy and limits fuel stations to valid US states only.
+
+---
 
 ## Features
-- Route distance calculation
-- Fuel stop optimization
+
+- Route distance calculation using OSRM
+- Fuel range simulation (500 miles per tank)
+- Greedy fuel stop optimization
 - US-only station filtering
-- Cost calculation
+- Total fuel cost calculation
+- REST API endpoint
+- PostgreSQL database
+
+---
 
 ## Tech Stack
-- Django
+
+- Python 3.12+
+- Django (latest stable)
 - Django REST Framework
 - PostgreSQL
 - OSRM Routing API
+- uv (dependency management)
 
-## How It Works
-1. User provides start and end cities.
-2. Route distance and geometry are fetched.
-3. Fuel stops are optimized using a greedy algorithm.
-4. API returns distance, stops, and total cost.
+---
 
-## Run Locally
-1. Clone repo
-2. Create virtual environment
-3. Install dependencies
-4. Run migrations
-5. Start server
+## Assumptions
 
-## API Example
+- Vehicle range: 500 miles per tank
+- Fuel efficiency: 10 MPG
+- Each refill: 50 gallons
+- Only US fuel stations are considered
 
-POST /api/fuel-route/
+---
 
+## API Endpoint
+
+### POST `/api/fuel-route/`
+
+### Request Body
+
+```json
 {
   "start": "Los Angeles, CA",
   "end": "Houston, TX"
