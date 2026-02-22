@@ -123,3 +123,48 @@ Among reachable stations, the cheapest option is selected.
 The process repeats until the destination is reached.
 
 This balances cost optimization and feasibility constraints without solving a full dynamic programming problem.
+
+
+Error Handling
+
+The API returns errors for:
+
+Non-US cities
+
+Unreachable routes
+
+No fuel station within reachable range
+
+Invalid request payload
+
+Example:
+
+{
+  "error": "No reachable fuel station within range."
+}
+
+Project Structure: 
+apps/
+  routing/
+    services/
+      fuel_optimizer.py
+      route_service.py
+    views.py
+
+route_service.py → fetches route from OSRM
+
+fuel_optimizer.py → handles stop selection logic
+
+views.py → API entry point
+
+
+Notes
+
+Fuel stations are pre-geocoded and included as a fixture.
+
+Only US states are supported.
+
+External routing is powered by OSRM public API.
+
+Optimization assumes fixed tank size and MPG.
+
