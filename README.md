@@ -47,52 +47,75 @@ The system uses a greedy optimization strategy and limits fuel stations to valid
 
 ---
 
-Setup Instructions
+## Setup Instructions
+
 1. Clone the Repository
+```
 git clone https://github.com/YOUR_USERNAME/fuel-route-optimizer.git
 cd fuel-route-optimizer
-2. Create Virtual Environment
+```
+
+3. Create Virtual Environment
 
 Using uv:
-
+```
 uv venv
 source .venv/bin/activate   # Linux / Mac
+```
+## On Windows:
 
-On Windows:
-
+```
 .venv\Scripts\activate
+```
 3. Install Dependencies
+```
 uv sync
-4. Setup PostgreSQL
+```
+
+5. Setup PostgreSQL
 
 Create a database:
-
+```psql
 CREATE DATABASE fuel_route;
+```
 
 Update your .env or settings.py with DB credentials.
 
 5. Run Migrations
+```
 python manage.py migrate
-6. Load Pre-Geocoded Fuel Stations
+```
+
+7. Load Pre-Geocoded Fuel Stations
+```
 python manage.py loaddata fuel_stations.json
+```
 
 ⚠️ This step is required before testing the API.
 
 7. Run the Server
+```
 python manage.py runserver
+```
+
+---
 
 
-Example API Call
+### Example API Call
 
 Using curl:
 
+```
 curl -X POST http://127.0.0.1:8000/api/fuel-route/ \
   -H "Content-Type: application/json" \
   -d '{
         "start": "Los Angeles, CA",
         "end": "Houston, TX"
       }'
-Example Response
+```
+
+Example Response:
+```
 {
   "distance_miles": 1546.04,
   "fuel_stops": [
@@ -107,8 +130,12 @@ Example Response
   ],
   "total_fuel_cost": 468.02
 }
+```
 
-Optimization Strategy
+---
+
+
+### Optimization Strategy
 
 The system uses a greedy algorithm:
 
@@ -124,8 +151,10 @@ The process repeats until the destination is reached.
 
 This balances cost optimization and feasibility constraints without solving a full dynamic programming problem.
 
+---
 
-Error Handling
+
+### Error Handling
 
 The API returns errors for:
 
@@ -135,21 +164,28 @@ Unreachable routes
 
 No fuel station within reachable range
 
-Invalid request payload
+
+### Invalid request payload
 
 Example:
-
+```
 {
   "error": "No reachable fuel station within range."
 }
+```
 
-Project Structure: 
+
+### Project Structure: 
+
+```
 apps/
   routing/
     services/
       fuel_optimizer.py
       route_service.py
     views.py
+```
+
 
 route_service.py → fetches route from OSRM
 
@@ -157,8 +193,10 @@ fuel_optimizer.py → handles stop selection logic
 
 views.py → API entry point
 
+---
 
-Notes
+
+### Notes
 
 Fuel stations are pre-geocoded and included as a fixture.
 
