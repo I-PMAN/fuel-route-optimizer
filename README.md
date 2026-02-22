@@ -47,14 +47,79 @@ The system uses a greedy optimization strategy and limits fuel stations to valid
 
 ---
 
-## API Endpoint
+Setup Instructions
+1. Clone the Repository
+git clone https://github.com/YOUR_USERNAME/fuel-route-optimizer.git
+cd fuel-route-optimizer
+2. Create Virtual Environment
 
-### POST `/api/fuel-route/`
+Using uv:
 
-### Request Body
+uv venv
+source .venv/bin/activate   # Linux / Mac
 
-```json
+On Windows:
+
+.venv\Scripts\activate
+3. Install Dependencies
+uv sync
+4. Setup PostgreSQL
+
+Create a database:
+
+CREATE DATABASE fuel_route;
+
+Update your .env or settings.py with DB credentials.
+
+5. Run Migrations
+python manage.py migrate
+6. Load Pre-Geocoded Fuel Stations
+python manage.py loaddata fuel_stations.json
+
+⚠️ This step is required before testing the API.
+
+7. Run the Server
+python manage.py runserver
+
+
+Example API Call
+
+Using curl:
+
+curl -X POST http://127.0.0.1:8000/api/fuel-route/ \
+  -H "Content-Type: application/json" \
+  -d '{
+        "start": "Los Angeles, CA",
+        "end": "Houston, TX"
+      }'
+Example Response
 {
-  "start": "Los Angeles, CA",
-  "end": "Houston, TX"
+  "distance_miles": 1546.04,
+  "fuel_stops": [
+    {
+      "name": "QUIKTRIP #1499",
+      "city": "Tucson",
+      "state": "AZ",
+      "price": 3.06,
+      "gallons": 50.0,
+      "cost": 153.12
+    }
+  ],
+  "total_fuel_cost": 468.02
 }
+
+Optimization Strategy
+
+The system uses a greedy algorithm:
+
+The route is fetched from OSRM.
+
+The vehicle starts with a full tank.
+
+Stations within reachable range are filtered.
+
+Among reachable stations, the cheapest option is selected.
+
+The process repeats until the destination is reached.
+
+This balances cost optimization and feasibility constraints without solving a full dynamic programming problem.
