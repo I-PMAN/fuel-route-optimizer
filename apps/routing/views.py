@@ -4,16 +4,51 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
-from .serializers import FuelRouteRequestSerializer
+from .serializers import FuelRouteRequestSerializer, FuelRouteResponseSerializer
 from .services.geocode import geocode_location
 from .services.routing import get_route
 from .services.geospatial import decode_polyline
 from .services.route_processing import compute_cumulative_distances
 from .services.fuel_optimizer import select_fuel_stops
-
+from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiExample
 
 class FuelRouteAPIView(APIView):
 
+    @extend_schema(
+    request=FuelRouteRequestSerializer,
+    responses={200: FuelRouteResponseSerializer},
+    description="Compute optimal fuel stops between two locations.",
+    examples=[
+        OpenApiExample(
+            "Request Example",
+            value={
+                "start": "Los Angeles, CA",
+                "end": "San Francisco, CA"
+            },
+            request_only=True,
+        ),
+        OpenApiExample(
+            "Response Example",
+            value={
+                "distance_miles": 382.4,
+                "fuel_stops": [
+                    {
+                        "station_name": "Shell",
+                        "latitude": 36.77,
+                        "longitude": -119.41,
+                        "price_per_gallon": 4.35,
+                        "gallons": 8.2,
+                        "cost": 35.67
+                    }
+                ],
+                "total_fuel_cost": 102.43
+            },
+            response_only=True,
+        ),
+    ],
+)
+    
     def post(self, request):
         serializer = FuelRouteRequestSerializer(data=request.data)
 

@@ -34,22 +34,6 @@ def station_distance_along_route(station, route_with_distance):
 
     return closest_mile
 
-def station_distance_along_route(station, route_with_distance):
-    station_coord = (station.latitude, station.longitude)
-
-    closest_mile = None
-    min_distance = float("inf")
-
-    for point in route_with_distance:
-        route_coord = (point[0], point[1])
-        distance = haversine(station_coord, route_coord, unit=Unit.MILES)
-
-        if distance < min_distance:
-            min_distance = distance
-            closest_mile = point[2]
-
-    return closest_mile
-
 def select_fuel_stops(route_with_distance):
     total_distance = route_with_distance[-1][2]
     fuel_remaining = MAX_RANGE
