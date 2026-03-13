@@ -101,7 +101,7 @@ class FuelRouteAPIView(APIView):
                 "no_of_stops": len(fuel_stops),
                 "fuel_stops": fuel_stops,
                 "total_fuel_cost": total_cost,
-                # "route_geometry": route["geometry"]
+                "route_geometry": route["geometry"]
             })
 
         except Exception as e:
