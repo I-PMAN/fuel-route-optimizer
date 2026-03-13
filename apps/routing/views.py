@@ -13,6 +13,10 @@ from .services.fuel_optimizer import select_fuel_stops
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.utils import OpenApiExample
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 class FuelRouteAPIView(APIView):
 
     @extend_schema(
@@ -24,25 +28,42 @@ class FuelRouteAPIView(APIView):
             "Request Example",
             value={
                 "start": "Los Angeles, CA",
-                "end": "San Francisco, CA"
+                "end": "Houston, TX"
             },
             request_only=True,
         ),
         OpenApiExample(
             "Response Example",
             value={
-                "distance_miles": 382.4,
+                "distance_miles": 1546.04,
+                "no_of_stops": 3,
                 "fuel_stops": [
                     {
-                        "station_name": "Shell",
-                        "latitude": 36.77,
-                        "longitude": -119.41,
-                        "price_per_gallon": 4.35,
-                        "gallons": 8.2,
-                        "cost": 35.67
+                    "name": "QUIKTRIP #1499",
+                    "city": "Tucson",
+                    "state": "AZ",
+                    "price": 3.06233333,
+                    "gallons": 48.48,
+                    "cost": 148.46
+                    },
+                    {
+                    "name": "PLATEAU TRUCK AND AUTO CENTER",
+                    "city": "Van Horn",
+                    "state": "TX",
+                    "price": 3.099,
+                    "gallons": 43.72,
+                    "cost": 135.48
+                    },
+                    {
+                    "name": "CIRCLE K #2741545",
+                    "city": "Cuero",
+                    "state": "TX",
+                    "price": 3.099,
+                    "gallons": 49.96,
+                    "cost": 154.82
                     }
                 ],
-                "total_fuel_cost": 102.43
+                "total_fuel_cost": 438.77
             },
             response_only=True,
         ),
@@ -65,16 +86,19 @@ class FuelRouteAPIView(APIView):
 
             # 2️⃣ Single routing API call
             route = get_route(start_coords, end_coords)
+            logger.info(route)
 
             # 3️⃣ Decode route
             points = decode_polyline(route["geometry"])
             route_with_distance = compute_cumulative_distances(points)
-
+            logger.info(f"Route with distance: {route_with_distance}")
             # 4️⃣ Fuel optimization
             fuel_stops, total_cost = select_fuel_stops(route_with_distance)
-
+            logger.info(f"Fuel stops: {fuel_stops}, Total cost: {total_cost}")
+            
             return Response({
                 "distance_miles": route["distance_miles"],
+                "no_of_stops": len(fuel_stops),
                 "fuel_stops": fuel_stops,
                 "total_fuel_cost": total_cost,
                 # "route_geometry": route["geometry"]

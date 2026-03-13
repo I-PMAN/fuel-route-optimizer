@@ -17,3 +17,10 @@ db.sqlite3
 # OS
 .DS_Store
 Thumbs.db
+
+fuel_stations.json
+fuel-prices-for-be-assessment.csv
+fuel_stations.csv
+data/
+
+logs/

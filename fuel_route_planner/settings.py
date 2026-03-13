@@ -132,3 +132,36 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "API for catalog and scraped product matching",
     "VERSION": "1.0.0",
 }
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+
+    "formatters": {
+        "verbose": {
+            "format": "[{asctime}] {levelname} {name}:{lineno} - {message}",
+            "style": "{",
+        },
+    },
+
+    "handlers": {
+        "file": {
+            "level": "INFO",
+            "class": "logging.FileHandler",
+            "filename": os.path.join(BASE_DIR, "logs/django.log"),
+            "formatter": "verbose",
+        },
+    },
+
+    "loggers": {
+        "django": {
+            "handlers": ["file"],
+            "level": "INFO",
+            "propagate": True,
+        },
+        "": {  # root logger (your app)
+            "handlers": ["file"],
+            "level": "INFO",
+        },
+    },
+}
