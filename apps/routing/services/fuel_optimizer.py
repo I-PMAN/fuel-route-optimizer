@@ -87,6 +87,7 @@ def select_fuel_stops(route_with_distance):
         "latitude",
         "longitude"
     )
+    print("Stations after bounding box:", len(all_stations))
 
     # ------------------------------------------------
     # 3. Route corridor filtering
@@ -100,6 +101,8 @@ def select_fuel_stops(route_with_distance):
     if not candidate_stations:
         raise Exception("No fuel stations near route.")
 
+    print("Stations near route:", len(candidate_stations))
+
     # ------------------------------------------------
     # 4. Compute distance along route
     # ------------------------------------------------
@@ -108,12 +111,13 @@ def select_fuel_stops(route_with_distance):
 
     for station in candidate_stations:
 
-        mile = station_distance_along_route(station, route_sampled)
+        mile = station_distance_along_route(station, route_with_distance)
 
         if mile is not None:
             station_positions.append((station, mile))
 
     station_positions.sort(key=lambda x: x[1])
+    print("Stations with distance:", len(station_positions))
 
     # ------------------------------------------------
     # 5. Greedy fuel optimization
