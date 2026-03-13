@@ -35,6 +35,7 @@ The system uses a greedy optimization strategy and limits fuel stations to valid
 - PostgreSQL
 - OSRM Routing API
 - uv (dependency management)
+- Vercel (Serverless deployment)
 
 ---
 
@@ -99,6 +100,14 @@ python manage.py runserver
 ```
 
 ---
+
+## Live API
+
+Base URL  
+https://fuel-route-optimizer.vercel.app
+
+Swagger Documentation  
+https://fuel-route-optimizer.vercel.app/api/docs/
 
 
 ### Example API Call
