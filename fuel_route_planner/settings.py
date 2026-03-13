@@ -133,35 +133,41 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
 }
 
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-
-    "formatters": {
-        "verbose": {
-            "format": "[{asctime}] {levelname} {name}:{lineno} - {message}",
-            "style": "{",
+if os.environ.get("VERCEL"):
+    LOGGING = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "handlers": {
+            "console": {
+                "class": "logging.StreamHandler",
+            },
         },
-    },
-
-    "handlers": {
-        "file": {
+        "root": {
+            "handlers": ["console"],
             "level": "INFO",
-            "class": "logging.FileHandler",
-            "filename": os.path.join(BASE_DIR, "logs/django.log"),
-            "formatter": "verbose",
         },
-    },
+    }
 
-    "loggers": {
-        "django": {
+else:
+    LOGGING = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "verbose": {
+                "format": "[{asctime}] {levelname} {name}:{lineno} {message}",
+                "style": "{",
+            },
+        },
+        "handlers": {
+            "file": {
+                "level": "INFO",
+                "class": "logging.FileHandler",
+                "filename": os.path.join(BASE_DIR, "logs/django.log"),
+                "formatter": "verbose",
+            },
+        },
+        "root": {
             "handlers": ["file"],
             "level": "INFO",
-            "propagate": True,
         },
-        "": {  # root logger (your app)
-            "handlers": ["file"],
-            "level": "INFO",
-        },
-    },
-}
+    }
