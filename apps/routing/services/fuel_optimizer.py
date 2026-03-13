@@ -5,7 +5,7 @@ from apps.fuel.models import FuelStation
 MAX_RANGE = 500
 MPG = 10
 TANK_GALLONS = 50
-ROUTE_BUFFER = 50  # miles
+ROUTE_BUFFER = 100  # miles
 
 US_STATES = {
     "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA",
@@ -68,10 +68,10 @@ def select_fuel_stops(route_with_distance):
     lats = [p[0] for p in route_points]
     lons = [p[1] for p in route_points]
 
-    min_lat = min(lats) - 1
-    max_lat = max(lats) + 1
-    min_lon = min(lons) - 1
-    max_lon = max(lons) + 1
+    min_lat = min(lats) - 2
+    max_lat = max(lats) + 2
+    min_lon = min(lons) - 2
+    max_lon = max(lons) + 2
 
     all_stations = FuelStation.objects.filter(
         latitude__gte=min_lat,
