@@ -1,5 +1,4 @@
 from django.shortcuts import render
-from django.views import View
 from django.http import HttpResponse
 
 from rest_framework.views import APIView
@@ -16,6 +15,8 @@ from .services.geojson_builder import build_route_geojson
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.utils import OpenApiExample
 from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter
+from rest_framework.renderers import StaticHTMLRenderer
 
 import logging
 
@@ -208,6 +209,19 @@ MAP_PAGE = """<!DOCTYPE html>
 </html>"""
 
 
-class RouteMapView(View):
+class RouteMapView(APIView):
+    renderer_classes = [StaticHTMLRenderer]
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("start", OpenApiTypes.STR, OpenApiParameter.QUERY,
+                             description="Optional start to preload, e.g. 'Los Angeles, CA'"),
+            OpenApiParameter("end", OpenApiTypes.STR, OpenApiParameter.QUERY,
+                             description="Optional end to preload, e.g. 'Houston, TX'"),
+        ],
+        responses={(200, "text/html"): OpenApiTypes.STR},
+        description="Interactive map of the route and fuel stops (HTML page; open in a "
+                    "browser). Add ?start=...&end=... to auto-load a route.",
+    )
     def get(self, request):
         return HttpResponse(MAP_PAGE, content_type="text/html")
