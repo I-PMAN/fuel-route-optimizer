@@ -2,216 +2,302 @@
 
 ## Overview
 
-This project is a Django REST API that calculates optimal fuel stops between two US cities.
+A Django REST API that calculates the most cost-effective fuel stops along a
+driving route between two US locations.
 
-Given a start and end city, the API:
+Given a start and end location, the API:
 
-1. Fetches route distance and geometry
-2. Simulates vehicle fuel consumption
-3. Selects optimal fuel stops along the route
-4. Calculates total fuel cost
+1. Geocodes both locations and fetches the route geometry and distance.
+2. Simulates fuel consumption for a vehicle with a fixed range and efficiency.
+3. Selects the cheapest feasible sequence of fuel stops along the route.
+4. Calculates the total fuel cost for the trip.
+5. Returns the route and stops as GeoJSON so they can be plotted on a map.
 
-The system uses a greedy optimization strategy and limits fuel stations to valid US states only.
+The optimizer uses a cost-minimizing greedy strategy and only considers fuel
+stations in US states.
 
 ---
 
 ## Features
 
-- Route distance calculation using OSRM
-- Fuel range simulation (500 miles per tank)
-- Greedy fuel stop optimization
+- Geocoding via the Nominatim (OpenStreetMap) API
+- Route geometry and distance via the OpenRouteService (ORS) API
+- Cost-minimizing fuel stop selection (greedy "gas station" algorithm)
+- 500-mile range simulation with multiple fill-ups as needed
 - US-only station filtering
-- Total fuel cost calculation
-- REST API endpoint
-- PostgreSQL database
+- Total fuel cost calculation at 10 MPG
+- GeoJSON output for map visualization
+- Swagger / OpenAPI documentation
+- PostgreSQL (or SQLite for local development)
 
 ---
 
 ## Tech Stack
 
-- Python 3.12+
-- Django (latest stable)
+- Python 3.13
+- Django (latest stable, 6.x)
 - Django REST Framework
-- PostgreSQL
-- OSRM Routing API
+- drf-spectacular (OpenAPI / Swagger)
+- PostgreSQL (SQLite supported for local dev)
+- OpenRouteService (routing) + Nominatim (geocoding)
 - uv (dependency management)
-- Vercel (Serverless deployment)
+- Vercel (serverless deployment)
 
 ---
 
 ## Assumptions
 
 - Vehicle range: 500 miles per tank
-- Fuel efficiency: 10 MPG
-- Each refill: 50 gallons
+- Fuel efficiency: 10 MPG (so a full tank ≈ 50 gallons)
+- The vehicle starts with a full tank, which is treated as already paid for —
+  cost only accrues for fuel purchased at stops along the route. A trip shorter
+  than one tank (≤ 500 miles) therefore needs no stops and reports a fuel cost
+  of $0.00.
 - Only US fuel stations are considered
+- Fuel prices come from the provided dataset (pre-geocoded fixture)
+
+---
+
+## External APIs and Call Budget
+
+To keep the API fast and within the "don't call the routing API too much"
+requirement, each request makes:
+
+- **1 routing call** to OpenRouteService.
+- **2 geocoding calls** to Nominatim (one each for start and end).
+
+The route geometry from the single routing call is reused to build both the
+fuel-stop analysis and the GeoJSON map output — no additional routing calls.
 
 ---
 
 ## Setup Instructions
 
-1. Clone the Repository
+### 1. Clone the repository
+
 ```
-git clone https://github.com/YOUR_USERNAME/fuel-route-optimizer.git
+git clone https://github.com/I-PMAN/fuel-route-optimizer.git
 cd fuel-route-optimizer
 ```
 
-3. Create Virtual Environment
+### 2. Create a virtual environment and install dependencies
 
-Using uv:
+Using uv (recommended; matches the project's lockfile):
+
 ```
 uv venv
-source .venv/bin/activate   # Linux / Mac
-```
-## On Windows:
-
-```
-.venv\Scripts\activate
-```
-3. Install Dependencies
-```
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
 uv sync
 ```
 
-5. Setup PostgreSQL
+Or using pip:
 
-Create a database:
-```psql
-CREATE DATABASE fuel_route;
+```
+python3.13 -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
 ```
 
-Update your .env or settings.py with DB credentials.
+### 3. Configure environment variables
 
-5. Run Migrations
+Create a `.env` file in the project root:
+
+```
+DATABASE_URL=postgres://user:password@localhost:5432/fuel_route
+ORS_API_KEY=your_openrouteservice_api_key
+```
+
+- Get a free `ORS_API_KEY` at https://openrouteservice.org/.
+- To skip installing PostgreSQL locally, use SQLite instead:
+  `DATABASE_URL=sqlite:///db.sqlite3`
+
+### 4. Create the logs directory
+
+```
+mkdir -p logs
+```
+
+This directory is required — the logging configuration writes to `logs/django.log`.
+
+### 5. Run migrations
+
 ```
 python manage.py migrate
 ```
 
-7. Load Pre-Geocoded Fuel Stations
+### 6. Load the pre-geocoded fuel stations
+
 ```
 python manage.py loaddata fuel_stations.json
 ```
 
-⚠️ This step is required before testing the API.
+Required before testing the API. (If your database is already populated, e.g.
+a shared/hosted database, you can skip this.)
 
-7. Run the Server
+### 7. Run the server
+
 ```
 python manage.py runserver
 ```
 
 ---
 
-## Live API
+## API Endpoints
 
-Base URL  
-https://fuel-route-optimizer.vercel.app
+Swagger UI is available at `/api/docs/`.
 
-Swagger Documentation  
-https://fuel-route-optimizer.vercel.app/api/docs/
+### `POST /api/fuel-route/`
 
+Returns the full result: distance, fuel stops with cost breakdown, total cost,
+the encoded route polyline, and a GeoJSON FeatureCollection.
 
-### Example API Call
-
-Using curl:
+Request:
 
 ```
 curl -X POST http://127.0.0.1:8000/api/fuel-route/ \
   -H "Content-Type: application/json" \
-  -d '{
-        "start": "Los Angeles, CA",
-        "end": "Houston, TX"
-      }'
+  -d '{ "start": "Los Angeles, CA", "end": "Houston, TX" }'
 ```
 
-Example Response:
+Example response (illustrative — exact stops, gallons and totals depend on the
+current dataset prices and the live route; `route_geometry` and `route_geojson`
+abbreviated for brevity). Note that gallons per stop vary: the optimizer buys
+only what's needed and never more than a full tank.
+
 ```
 {
   "distance_miles": 1546.04,
+  "no_of_stops": 3,
   "fuel_stops": [
     {
-      "name": "QUIKTRIP #1499",
-      "city": "Tucson",
+      "name": "TCI PHOENIX",
+      "city": "Phoenix",
       "state": "AZ",
-      "price": 3.06,
-      "gallons": 50.0,
-      "cost": 153.12
+      "latitude": 33.4484367,
+      "longitude": -112.074141,
+      "price": 2.9223,
+      "gallons": 39.64,
+      "cost": 115.84
     }
   ],
-  "total_fuel_cost": 468.02
+  "total_fuel_cost": 305.71,
+  "route_geometry": "...",
+  "route_geojson": { "type": "FeatureCollection", "features": [ ... ] }
 }
+```
+
+### `POST /api/fuel-route/geojson/`
+
+Returns **only** a GeoJSON FeatureCollection (route line + fuel stop markers)
+as the entire response body. This makes it easy to visualize the route.
+
+### `GET /api/map/`
+
+Returns an interactive HTML map (Leaflet + OpenStreetMap) of the route with a
+clickable marker at each fuel stop. Open it in a browser; add query parameters
+to auto-load a route:
+
+```
+http://127.0.0.1:8000/api/map/?start=Los Angeles, CA&end=Houston, TX
 ```
 
 ---
 
+## Viewing the Route on a Map
 
-### Optimization Strategy
+The easiest option is the built-in viewer — open `GET /api/map/` in a browser
+(optionally with `?start=...&end=...`) and the route plus fuel-stop markers
+render automatically. Click a marker to see its price, gallons, and cost.
 
-The system uses a greedy algorithm:
+Alternatively, to inspect the raw GeoJSON:
 
-The route is fetched from OSRM.
-
-The vehicle starts with a full tank.
-
-Stations within reachable range are filtered.
-
-Among reachable stations, the cheapest option is selected.
-
-The process repeats until the destination is reached.
-
-This balances cost optimization and feasibility constraints without solving a full dynamic programming problem.
+1. Call `POST /api/fuel-route/geojson/` (e.g. from Swagger UI).
+2. Copy the entire response body, or use Swagger's **Download** button.
+3. Paste it into https://geojson.io (or drag the downloaded file onto the map).
 
 ---
 
+## Optimization Strategy
 
-### Error Handling
+A cost-minimizing greedy algorithm (the classic "gas station" problem),
+respecting the tank's physical capacity:
 
-The API returns errors for:
+- The vehicle starts with a full tank (treated as already paid for).
+- At each refuel point, all stations reachable on the current tank are
+  considered.
+- If a cheaper station is reachable within a full tank, the vehicle buys only
+  enough fuel to reach it.
+- Otherwise it tops up toward the destination at the cheapest reachable
+  station — buying only the deficit, never more than the tank can hold.
+- The fuel needed to cover the final leg to the destination is included in the
+  total cost.
 
-Non-US cities
+This minimizes total spend while respecting the 500-mile range and tank
+capacity, without the overhead of full dynamic programming.
 
-Unreachable routes
+---
 
-No fuel station within reachable range
+## Error Handling
 
+The API returns a `400` with an `error` message for cases such as:
 
-### Invalid request payload
+- A location that cannot be geocoded.
+- No fuel station reachable within range on some segment of the route.
 
 Example:
+
 ```
-{
-  "error": "No reachable fuel station within range."
-}
+{ "error": "No reachable fuel station within range." }
 ```
 
+---
 
-### Project Structure: 
+## Running Tests
+
+The test suite covers the optimizer (cost minimization, tank-capacity limits,
+final-leg costing, preferring cheaper stations, and unreachable-route handling)
+and the API endpoints (request validation, geocode-failure handling, and the
+GeoJSON/map responses). The optimizer tests build a deterministic synthetic
+route, so they need no real data or network access.
+
+Run them against SQLite (avoids needing CREATE DATABASE privileges on a managed
+Postgres, and keeps tests offline):
+
+```
+DATABASE_URL=sqlite:///db.sqlite3 ORS_API_KEY=x python manage.py test apps.routing
+```
+
+---
+
+## Project Structure
 
 ```
 apps/
+  fuel/
+    models.py                      # FuelStation, CityCoordinate
+    management/commands/           # data import / geocoding commands
   routing/
     services/
-      fuel_optimizer.py
-      route_service.py
-    views.py
+      geocode.py                   # Nominatim geocoding
+      routing.py                   # OpenRouteService routing (single call)
+      geospatial.py                # polyline decoding
+      route_processing.py          # cumulative distance along the route
+      fuel_optimizer.py            # cost-minimizing stop selection
+      geojson_builder.py           # builds the GeoJSON FeatureCollection
+    serializers.py
+    views.py                       # API endpoints + HTML map view
+    urls.py
+    test_fuel_route.py             # optimizer + endpoint tests
+fuel_route_planner/                # Django project settings
+fuel-prices-for-be-assessment.csv  # source fuel price dataset
+fuel_stations.json                 # pre-geocoded station fixture
 ```
-
-
-route_service.py → fetches route from OSRM
-
-fuel_optimizer.py → handles stop selection logic
-
-views.py → API entry point
 
 ---
 
+## Notes
 
-### Notes
-
-Fuel stations are pre-geocoded and included as a fixture.
-
-Only US states are supported.
-
-External routing is powered by OSRM public API.
-
-Optimization assumes fixed tank size and MPG.
-
+- Fuel stations are pre-geocoded and loaded from a fixture.
+- Only US states are supported.
+- Routing is powered by the OpenRouteService API; geocoding by Nominatim.
+- The optimizer assumes a fixed tank size and MPG.

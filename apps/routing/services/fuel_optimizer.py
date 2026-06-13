@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 MAX_RANGE = 500
 MPG = 10
 TANK_GALLONS = 50
-ROUTE_BUFFER = 100  # miles
+ROUTE_BUFFER = 15  # miles
 
 US_STATES = {
     "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA",
@@ -48,12 +48,6 @@ def station_distance_along_route(station, route_with_distance):
 
 def select_fuel_stops(route_with_distance):
     total_distance = route_with_distance[-1][2]
-
-    fuel_remaining = MAX_RANGE
-    current_position = 0
-
-    total_cost = 0
-    fuel_stops = []
 
     # ------------------------------------------------
     # 1. Reduce route points 
@@ -122,69 +116,88 @@ def select_fuel_stops(route_with_distance):
     logger.info(f"Stations with distance: {len(station_positions)}")
 
     # ------------------------------------------------
-    # 5. Greedy fuel optimization
+    # 5. Cost-minimizing greedy fuel optimization
     # ------------------------------------------------
+    #
+    # Classic "gas station" greedy. At each refuel point we look ahead at
+    # every station reachable on the current tank:
+    #   * If a cheaper station is reachable, buy only enough fuel to get
+    #     there (no point paying more here than we have to).
+    #   * Otherwise this is the cheapest option in range, so fill up enough
+    #     to push as far as possible before the next mandatory stop.
+    # This minimizes total spend while respecting the MAX_RANGE constraint.
 
-    while current_position < total_distance:
+    # Fuel is tracked as "miles of range in the tank" (capacity == MAX_RANGE).
+    # The vehicle starts with a full tank, which is treated as already paid for
+    # (cost only accrues for fuel purchased at stops along the route).
+    #
+    # Classic cost-minimizing "gas station" greedy, now respecting tank
+    # capacity. At each refuel point:
+    #   * If a strictly cheaper station is reachable within a full tank, buy
+    #     only enough to reach it (don't overpay here).
+    #   * Otherwise top up toward the destination, but never beyond what the
+    #     tank can physically hold.
+    EPS = 1e-9
 
-        if current_position + fuel_remaining >= total_distance:
-            break
+    current_position = 0.0
+    fuel_remaining = float(MAX_RANGE)  # miles of range in the tank; start full
+    total_cost = 0.0
+    fuel_stops = []
 
+    while current_position + fuel_remaining < total_distance - EPS:
+        # Stations ahead of us and reachable on the current tank.
         reachable = [
             (s, mile)
             for s, mile in station_positions
-            
-            if current_position < mile <= current_position + fuel_remaining
+            if current_position < mile <= current_position + fuel_remaining + EPS
         ]
-        print(type(station_positions[0][0]))
 
         if not reachable:
-            next_stations = sorted(station_positions, key=lambda x: x[1])[:5]
-            print("DEBUG ----------------")
-            print("Current position:", current_position)
-            print("Fuel remaining:", fuel_remaining)
-            print("Stations available:", len(station_positions))
-            print("Total route distance:", total_distance)
-            
-            print("First few stations (mile positions):")
-            for s, mile in next_stations:
-                print(s["name"], mile)
-            
-            print("----------------------")
             raise Exception("No reachable fuel station within range.")
 
-        # Farthest reachable station
-        farthest_mile = max(r[1] for r in reachable)
+        # Cheapest station we can actually reach right now (nearest breaks ties).
+        station, mile = min(reachable, key=lambda x: (x[0]["price"], x[1]))
+        here_price = station["price"]
 
-        candidates = [
-            r for r in reachable
-            if abs(r[1] - farthest_mile) < 0.01
+        # Fuel left in the tank when we arrive at this station.
+        arrival_fuel = fuel_remaining - (mile - current_position)
+
+        # Is there a strictly cheaper station reachable within a full tank from
+        # here? If so, we only need enough fuel to get there.
+        cheaper_ahead = [
+            (s, m) for s, m in station_positions
+            if mile < m <= mile + MAX_RANGE and s["price"] < here_price
         ]
 
-        station, mile = min(candidates, key=lambda x: x[0]["price"])
+        if cheaper_ahead:
+            target_mile = min(cheaper_ahead, key=lambda x: x[1])[1]
+            need = target_mile - mile
+        else:
+            # No cheaper option ahead: top up toward the destination.
+            need = min(MAX_RANGE, total_distance - mile)
 
-        # Calculate fuel needed to reach this station
-        miles_needed = mile - current_position
-        gallons_needed = miles_needed / MPG
+        # Buy only the deficit, and never more than the tank can hold.
+        miles_to_buy = max(0.0, need - arrival_fuel)
+        miles_to_buy = min(miles_to_buy, MAX_RANGE - arrival_fuel)
 
-        # Cost of that fuel
-        cost = gallons_needed * station["price"]
+        if miles_to_buy > EPS:
+            gallons = miles_to_buy / MPG
+            cost = gallons * here_price
+            total_cost += cost
+            fuel_stops.append({
+                "name": station["name"],
+                "city": station["city"],
+                "state": station["state"],
+                "latitude": station["latitude"],
+                "longitude": station["longitude"],
+                "price": round(here_price, 4),
+                "gallons": round(gallons, 2),
+                "cost": round(cost, 2),
+            })
 
-        fuel_stops.append({
-            "name": station["name"],
-            "city": station["city"],
-            "state": station["state"],
-            "price": station["price"],
-            "gallons": round(gallons_needed, 2),
-            "cost": round(cost, 2),
-        })
-
-        total_cost += cost
-
-        # Update state
-        fuel_remaining -= miles_needed
-        fuel_remaining = MAX_RANGE
+        # Advance to this station; the tank now holds the arrival fuel plus
+        # whatever we just bought.
+        fuel_remaining = arrival_fuel + miles_to_buy
         current_position = mile
 
     return fuel_stops, round(total_cost, 2)
-

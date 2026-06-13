@@ -82,7 +82,7 @@ WSGI_APPLICATION = 'fuel_route_planner.wsgi.application'
 
 DATABASES = {
     "default": dj_database_url.parse(
-        os.environ.get("DATABASE_URL")
+        os.environ.get("DATABASE_URL", f"sqlite:///{BASE_DIR / 'db.sqlite3'}")
     )
 }
 
@@ -128,8 +128,8 @@ REST_FRAMEWORK = {
 }
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "Product Matching API",
-    "DESCRIPTION": "API for catalog and scraped product matching",
+    "TITLE": "Fuel Route Optimizer API",
+    "DESCRIPTION": "Computes cost-optimal fuel stops along a driving route between two US locations.",
     "VERSION": "1.0.0",
 }
 
@@ -149,6 +149,7 @@ if os.environ.get("VERCEL"):
     }
 
 else:
+    os.makedirs(BASE_DIR / "logs", exist_ok=True)
     LOGGING = {
         "version": 1,
         "disable_existing_loggers": False,
